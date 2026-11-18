@@ -148,7 +148,7 @@ tr.lead td.rank{color:var(--accent-ink); font-size:20px; font-weight:700}
 
 /* campi dei filtri */
 label.f{display:flex; flex-direction:column; gap:4px; font-size:13px; color:var(--ink2); min-width:0}
-input[type=text],input[type=date],input[type=number],select{background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:9px 11px; min-height:42px; width:100%; min-width:0}
+input[type=text],input[type=date],input[type=number],input[type=password],select{background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:9px 11px; min-height:42px; width:100%; min-width:0}
 input[type=number]{text-align:center; padding-inline:4px}
 /* personalizzazione classifica */
 .tools{display:flex; gap:8px; flex-wrap:wrap}
@@ -174,6 +174,24 @@ input[type=number]{text-align:center; padding-inline:4px}
 .sortbtn:hover{color:var(--ink)}
 .sortbtn.on{color:var(--accent-ink); font-weight:600}
 .sortbtn .arr{font-size:10px; opacity:.75}
+
+/* accesso e aggiunta partite (solo con token) */
+.access{display:flex; flex-direction:column; gap:10px}
+.access .row{display:flex; flex-wrap:wrap; gap:8px}
+.access input{flex:1 1 220px; width:auto}
+.status{font-size:14px; min-height:1.3em}
+.status.err{color:var(--err)}
+.status.ok{color:var(--accent-ink); font-weight:600}
+.addform{display:flex; flex-direction:column; gap:18px; max-width:560px}
+.addform fieldset{border:0; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; min-width:0}
+.addform legend{font-size:13px; color:var(--ink2); padding:0; margin-bottom:6px}
+.addform .seg{align-self:flex-start; flex-wrap:wrap}
+.pair2{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px}
+.setrow{display:grid; grid-template-columns:4.2em minmax(0,1fr) 1em minmax(0,1fr); gap:8px; align-items:center}
+.setrow span{color:var(--ink2); font-size:13px}
+.setrow b{text-align:center; color:var(--ink2)}
+.preview{background:var(--accent-soft); border-radius:8px; padding:10px 14px; min-height:44px; display:flex; align-items:center}
+.addact{display:flex; flex-wrap:wrap; gap:8px}
 
 /* formato partite */
 .fmtbar{display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center; margin-top:-12px}
@@ -233,6 +251,7 @@ input[type=number]{text-align:center; padding-inline:4px}
     <a href="#classifica" data-go="classifica"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20v-8h5v8M9 20V5h6v15M16 20v-6h5v6"/></svg><span>Classifica</span></a>
     <a href="#risultati" data-go="risultati"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg><span>Risultati</span></a>
     <a href="#coppie" data-go="coppie"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6M15 14.5c3 0 6 1.5 6 5.5"/></svg><span>Coppie</span></a>
+    <a href="#aggiungi" data-go="aggiungi" id="tabAdd" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg><span>Aggiungi</span></a>
   </nav>
 
   <div class="fmtbar" id="fmtbar"></div>
@@ -240,6 +259,16 @@ input[type=number]{text-align:center; padding-inline:4px}
   <div class="notice" id="notice" hidden></div>
 
   <div class="notice install" id="install" hidden></div>
+
+  <div class="notice access" id="access" hidden>
+    <p><b>Accesso per aggiungere partite.</b> Incolla il token GitHub: resta salvato solo su questo dispositivo.</p>
+    <div class="row">
+      <input type="password" id="tokenIn" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Token GitHub" aria-label="Token GitHub">
+      <button class="btn small" type="button" id="tokenOk">Attiva</button>
+      <button class="btn ghost small" type="button" data-act="close-access">Annulla</button>
+    </div>
+    <p class="status" id="accessMsg" role="status" aria-live="polite"></p>
+  </div>
 
   <section class="blk" data-screen="classifica" data-board="players" aria-labelledby="h-rank">
     <div class="sechead">
@@ -305,6 +334,50 @@ input[type=number]{text-align:center; padding-inline:4px}
     <div class="panel2" data-r="fltPanel" hidden></div>
     <p class="sub count" data-r="count" aria-live="polite"></p>
     <div data-r="table"></div>
+  </section>
+
+  <section class="blk" data-screen="aggiungi" aria-labelledby="h-add">
+    <div>
+      <h2 id="h-add">Aggiungi partita</h2>
+      <p class="sub">La partita viene salvata in partite.json su GitHub e compare nel sito dopo circa un minuto.</p>
+    </div>
+    <form class="panel2 addform" id="addForm" autocomplete="off" novalidate>
+      <label class="f" for="f-date">Data<input type="date" id="f-date" required></label>
+      <fieldset>
+        <legend>Formato</legend>
+        <div class="seg" role="group" aria-label="Formato della partita">
+          <button type="button" data-addfmt="tre" aria-pressed="true">Al meglio dei 3</button>
+          <button type="button" data-addfmt="singolo" aria-pressed="false">Set singolo</button>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Coppia A</legend>
+        <div class="pair2">
+          <input type="text" id="f-a1" list="plist" placeholder="Giocatore 1" aria-label="Coppia A, giocatore 1" autocapitalize="words" autocomplete="off">
+          <input type="text" id="f-a2" list="plist" placeholder="Giocatore 2" aria-label="Coppia A, giocatore 2" autocapitalize="words" autocomplete="off">
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Coppia B</legend>
+        <div class="pair2">
+          <input type="text" id="f-b1" list="plist" placeholder="Giocatore 3" aria-label="Coppia B, giocatore 1" autocapitalize="words" autocomplete="off">
+          <input type="text" id="f-b2" list="plist" placeholder="Giocatore 4" aria-label="Coppia B, giocatore 2" autocapitalize="words" autocomplete="off">
+        </div>
+      </fieldset>
+      <fieldset id="addSets">
+        <legend>Giochi di ogni set: coppia A a sinistra, coppia B a destra</legend>
+        <div class="setrow"><span>Set 1</span><input type="number" min="0" max="99" step="1" inputmode="numeric" aria-label="Set 1, giochi coppia A"><b>-</b><input type="number" min="0" max="99" step="1" inputmode="numeric" aria-label="Set 1, giochi coppia B"></div>
+        <div class="setrow"><span>Set 2</span><input type="number" min="0" max="99" step="1" inputmode="numeric" aria-label="Set 2, giochi coppia A"><b>-</b><input type="number" min="0" max="99" step="1" inputmode="numeric" aria-label="Set 2, giochi coppia B"></div>
+        <div class="setrow"><span>Set 3</span><input type="number" min="0" max="99" step="1" inputmode="numeric" aria-label="Set 3, giochi coppia A" placeholder="se giocato"><b>-</b><input type="number" min="0" max="99" step="1" inputmode="numeric" aria-label="Set 3, giochi coppia B" placeholder="se giocato"></div>
+      </fieldset>
+      <datalist id="plist"></datalist>
+      <div class="preview" id="addPreview" aria-live="polite"></div>
+      <div class="addact">
+        <button class="btn" type="submit" id="saveBtn">Salva partita</button>
+      </div>
+      <p class="status" id="saveMsg" role="status" aria-live="polite"></p>
+    </form>
+    <div><button class="btn ghost small" type="button" data-act="exit-edit">Disattiva l'accesso su questo dispositivo</button></div>
   </section>
 </div>
 
@@ -567,6 +640,7 @@ input[type=number]{text-align:center; padding-inline:4px}
   function renderAll(){
     if(!A) return;
     renderFmtbar(); renderBoard(boards.players); renderBoard(boards.pairs); renderResults();
+    if(editOn) renderAddNames();
   }
 
   // eventi
@@ -624,12 +698,232 @@ input[type=number]{text-align:center; padding-inline:4px}
     showInstall('<p><b>Installa l’app su iPhone o iPad.</b> In Safari tocca Condividi, poi “Aggiungi alla schermata Home”.</p><div class="acts"><button class="btn ghost small" data-act="hide-install" type="button">Ho capito</button></div>');
   }
 
+  // ===== Aggiunta partite =====
+  // La scheda "Aggiungi" esiste solo sui dispositivi dove e' salvato un token GitHub valido. A tutti gli altri non compare.
+  // Nasconderla non e' la protezione: a impedire modifiche ai dati e' GitHub, che rifiuta ogni salvataggio senza un token autorizzato.
+  const TOKEN_KEY = 'padel-token';
+  const API = 'https://api.github.com';
+  const R = (() => {
+    const h = (location.hostname || '').match(/^([^.]+)\.github\.io$/i);
+    if(!h) return null;
+    return {owner:h[1], repo:(location.pathname || '').split('/')[1] || location.hostname};
+  })();
+  let token = '';
+  try { token = localStorage.getItem(TOKEN_KEY) || ''; } catch(_){}
+  let editOn = !!(token && R);
+  const ghHeadersFor = (t, extra) => Object.assign({'Authorization':'Bearer ' + t, 'Accept':'application/vnd.github+json', 'X-GitHub-Api-Version':'2022-11-28'}, extra || {});
+  const ghHeaders = extra => ghHeadersFor(token, extra);
+  const fileUrl = () => `${API}/repos/${R.owner}/${R.repo}/contents/partite.json`;
+
+  // chi ha il token legge le partite direttamente da GitHub (sempre aggiornate), gli altri dal sito
+  function loadData(){
+    const pages = () => fetch('partite.json', {cache:'no-store'}).then(r => { if(!r.ok) throw new Error(r.status); return r.json(); });
+    if(!(editOn && R)) return pages();
+    return fetch(fileUrl(), {headers:ghHeaders({'Accept':'application/vnd.github.raw+json'}), cache:'no-store'})
+      .then(r => { if(!r.ok) throw new Error(r.status); return r.json(); })
+      .catch(pages);
+  }
+
+  async function checkToken(t){
+    try {
+      const r = await fetch(`${API}/repos/${R.owner}/${R.repo}`, {headers:ghHeadersFor(t), cache:'no-store'});
+      if(r.status === 401) return {ok:false, bad:true, msg:'Token non valido o scaduto.'};
+      if(r.status === 403 || r.status === 404) return {ok:false, bad:true, msg:'Questo token non ha accesso al repository ' + R.repo + '. Crealo solo per questo repository.'};
+      if(!r.ok) return {ok:false, msg:'GitHub non risponde (errore ' + r.status + '). Riprova tra poco.'};
+      const j = await r.json();
+      if(j && j.permissions && j.permissions.push === false) return {ok:false, bad:true, msg:'Il token è di sola lettura: serve il permesso Contents su "Read and write".'};
+      return {ok:true};
+    } catch(_){ return {ok:false, msg:'Nessuna connessione a GitHub. Riprova.'}; }
+  }
+
+  const b64decode = b => new TextDecoder().decode(Uint8Array.from(atob(String(b).replace(/\s/g, '')), c => c.charCodeAt(0)));
+  const b64encode = str => { const bytes = new TextEncoder().encode(str); let bin = ''; for(let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192)); return btoa(bin); };
+  // stesso aspetto del file attuale: una partita per riga
+  const inline = v => Array.isArray(v) ? '[' + v.map(inline).join(', ') + ']'
+    : (v && typeof v === 'object') ? '{' + Object.keys(v).map(k => JSON.stringify(k) + ': ' + inline(v[k])).join(', ') + '}' : JSON.stringify(v);
+  function serialize(j){
+    const parts = Object.keys(j).map(k => k === 'partite'
+      ? '  "partite": [\n' + j.partite.map(m => '    ' + inline(m)).join(',\n') + '\n  ]'
+      : '  ' + JSON.stringify(k) + ': ' + inline(j[k]));
+    return '{\n' + parts.join(',\n') + '\n}\n';
+  }
+
+  async function saveMatch(m){
+    for(let attempt = 0; attempt < 2; attempt++){
+      const g = await fetch(fileUrl(), {headers:ghHeaders(), cache:'no-store'});
+      if(!g.ok) throw {status:g.status};
+      const f = await g.json();
+      let j;
+      try { j = JSON.parse(b64decode(f.content)); } catch(_){ throw {msg:'partite.json non è un file valido: correggilo su GitHub prima di aggiungere partite.'}; }
+      if(!Array.isArray(j.partite)) throw {msg:'In partite.json manca l\'elenco "partite".'};
+      j.partite.push(m);
+      const p = await fetch(fileUrl(), {
+        method:'PUT', headers:ghHeaders({'Content-Type':'application/json'}),
+        body:JSON.stringify({message:'Aggiunta partita: ' + m.a.join(' e ') + ' contro ' + m.b.join(' e '), content:b64encode(serialize(j)), sha:f.sha})
+      });
+      if(p.ok) return j;
+      if((p.status === 409 || p.status === 422) && attempt === 0) continue; // qualcuno ha salvato nel frattempo: rileggo e riprovo
+      throw {status:p.status};
+    }
+    throw {status:409};
+  }
+  function saveError(e){
+    if(e && e.msg) return e.msg;
+    const st = e && e.status;
+    if(st === 401) return 'Il token non è valido o è scaduto. Disattiva l\'accesso e inseriscilo di nuovo.';
+    if(st === 403 || st === 404) return 'Il token non ha il permesso di scrivere su questo repository (serve Contents su "Read and write").';
+    if(st === 409 || st === 422) return 'Qualcun altro ha salvato nello stesso momento. Riprova.';
+    if(st) return 'GitHub ha risposto con un errore (' + st + '). Riprova tra poco.';
+    return 'Nessuna connessione a GitHub. Riprova.';
+  }
+
+  // --- modulo
+  let addFmt = 'tre';
+  function knownNames(){
+    const m = new Map();
+    matches.filter(valid).forEach(x => x.a.concat(x.b).forEach(n => { const c = clean(n); if(!m.has(c.toLowerCase())) m.set(c.toLowerCase(), c); }));
+    return m;
+  }
+  function renderAddNames(){
+    $('#plist').innerHTML = [...knownNames().values()].sort((x, y) => x.localeCompare(y, 'it')).map(n => `<option value="${esc(n)}"></option>`).join('');
+  }
+  const setRows = () => [...document.querySelectorAll('#addSets .setrow')];
+  function setAddFmt(f){
+    addFmt = f;
+    document.querySelectorAll('[data-addfmt]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.addfmt === f)));
+    setRows().forEach((r, i) => { r.hidden = f === 'singolo' && i > 0; if(r.hidden) r.querySelectorAll('input').forEach(x => { x.value = ''; }); });
+    updatePreview();
+  }
+  function explain(m){
+    if(m.set.some(x => x[0] === x[1])) return 'Un set non può finire in pareggio.';
+    const sa = m.set.filter(x => x[0] > x[1]).length, sb = m.set.length - sa;
+    if(fmtOf(m) === 'singolo') return 'Il set singolo ha un solo set.';
+    if(m.set.length < 2) return 'Al meglio dei 3 servono almeno 2 set. Per un solo set scegli "Set singolo".';
+    if(sa === sb) return 'Sull\'1-1 serve il terzo set.';
+    if(m.set.length === 3 && (m.set[0][0] > m.set[0][1]) === (m.set[1][0] > m.set[1][1])) return 'Il terzo set si gioca solo sull\'1-1: i primi due set non possono andare alla stessa coppia.';
+    return 'Il vincitore deve aggiudicarsi 2 set.';
+  }
+  function readForm(){
+    const known = knownNames();
+    const nm = id => { const v = clean($(id).value); return known.get(v.toLowerCase()) || v; };
+    const a = [nm('#f-a1'), nm('#f-a2')], b = [nm('#f-b1'), nm('#f-b2')];
+    const date = $('#f-date').value;
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return {err:'Scegli la data.'};
+    const all = a.concat(b);
+    if(all.some(n => !n)) return {err:'Inserisci i nomi di tutti e quattro i giocatori.'};
+    if(new Set(all.map(n => n.toLowerCase())).size < 4) return {err:'Ogni giocatore può comparire una sola volta nella partita.'};
+    const sets = []; let gap = false;
+    const rows = setRows().filter(r => !r.hidden);
+    for(let i = 0; i < rows.length; i++){
+      const v = [...rows[i].querySelectorAll('input')].map(x => x.value.trim());
+      if(v[0] === '' && v[1] === ''){ gap = true; continue; }
+      if(v[0] === '' || v[1] === '') return {err:'Completa i giochi di entrambe le coppie nel Set ' + (i + 1) + '.'};
+      if(!/^\d{1,2}$/.test(v[0]) || !/^\d{1,2}$/.test(v[1])) return {err:'I giochi devono essere numeri interi da 0 a 99.'};
+      if(gap) return {err:'Compila i set in ordine, senza saltarne uno.'};
+      sets.push([Number(v[0]), Number(v[1])]);
+    }
+    if(!sets.length) return {err:'Inserisci il punteggio.'};
+    const m = {data:date, formato:addFmt === 'singolo' ? 'set-singolo' : 'meglio-di-3', a, b, set:sets};
+    if(!valid(m)) return {err:explain(m)};
+    if(addFmt === 'tre' && sets.length === 3 && (sets[0][0] > sets[0][1]) === (sets[1][0] > sets[1][1])) return {err:explain(m)};
+    return {m};
+  }
+  function previewText(m){
+    const sa = m.set.filter(x => x[0] > x[1]).length, sb = m.set.length - sa, aWin = sa > sb;
+    const W = aWin ? m.a : m.b, ws = Math.max(sa, sb), ls = Math.min(sa, sb), tre = fmtOf(m) === 'tre';
+    const wp = tre ? (ls === 0 ? 5 : 4) : 3, lp = tre ? (ls === 0 ? 1 : 2) : 1;
+    return `Vincono ${W.join(' e ')} ${ws}-${ls}. Punti: ${wp} ai vincitori, ${lp} agli altri.`;
+  }
+  function updatePreview(){
+    const r = readForm();
+    $('#addPreview').textContent = r.m ? previewText(r.m) : 'Compila il modulo: qui vedi chi vince e quanti punti vanno a ogni coppia.';
+  }
+  function saveStatus(msg, kind){ const el = $('#saveMsg'); el.textContent = msg || ''; el.className = 'status' + (kind ? ' ' + kind : ''); }
+
+  $('#addForm').addEventListener('input', () => { saveStatus(''); updatePreview(); });
+  $('#addForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const r = readForm();
+    if(r.err){ saveStatus(r.err, 'err'); return; }
+    const btn = $('#saveBtn'); btn.disabled = true; saveStatus('Salvataggio in corso…');
+    try {
+      const j = await saveMatch(r.m);
+      matches = j.partite; reanalyze();
+      setRows().forEach(row => row.querySelectorAll('input').forEach(x => { x.value = ''; }));
+      updatePreview();
+      saveStatus('Partita salvata. Sul sito pubblico compare tra circa un minuto.', 'ok');
+    } catch(err){
+      saveStatus(saveError(err), 'err');
+      if(err && err.status === 401) { /* token revocato: al prossimo avvio l'accesso si disattiva */ }
+    }
+    btn.disabled = false;
+  });
+
+  // --- accesso
+  function applyEdit(){
+    $('#tabAdd').hidden = !editOn;
+    if(!editOn && current === 'aggiungi') location.hash = 'classifica';
+  }
+  function accessMsg(msg, kind){ const el = $('#accessMsg'); el.textContent = msg || ''; el.className = 'status' + (kind ? ' ' + kind : ''); }
+  function openAccess(msg){
+    $('#access').hidden = false;
+    accessMsg(R ? msg : 'L\'accesso funziona solo dal sito pubblicato su GitHub Pages.', R ? '' : 'err');
+    if(R) $('#tokenIn').focus();
+  }
+  function dropToken(){
+    token = ''; editOn = false;
+    try { localStorage.removeItem(TOKEN_KEY); } catch(_){}
+    applyEdit();
+  }
+  function cleanUrl(){ try { history.replaceState(null, '', location.pathname + location.hash); } catch(_){} }
+  async function activate(){
+    const t = $('#tokenIn').value.trim();
+    if(!t){ accessMsg('Incolla il token.', 'err'); return; }
+    $('#tokenOk').disabled = true; accessMsg('Controllo il token…');
+    const r = await checkToken(t);
+    $('#tokenOk').disabled = false;
+    if(!r.ok){ accessMsg(r.msg, 'err'); return; }
+    token = t; editOn = true;
+    try { localStorage.setItem(TOKEN_KEY, t); } catch(_){ accessMsg('Token valido, ma questo browser non permette di salvarlo: l\'accesso dura solo finché la pagina resta aperta.', 'err'); }
+    $('#tokenIn').value = ''; $('#access').hidden = true; accessMsg('');
+    cleanUrl(); applyEdit(); location.hash = 'aggiungi';
+    loadData().then(j => { matches = Array.isArray(j.partite) ? j.partite : matches; reanalyze(); }).catch(() => {});
+  }
+  document.addEventListener('click', e => {
+    const t = e.target.closest('button'); if(!t) return;
+    if(t.id === 'tokenOk') activate();
+    else if(t.dataset.act === 'close-access'){ $('#access').hidden = true; $('#tokenIn').value = ''; accessMsg(''); cleanUrl(); }
+    else if(t.dataset.act === 'exit-edit'){ dropToken(); }
+    else if(t.dataset.addfmt){ setAddFmt(t.dataset.addfmt); }
+  });
+  $('#tokenIn').addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); activate(); } });
+  // su iPhone l'app installata non ha la barra dell'indirizzo: toccando cinque volte la racchetta si apre lo stesso accesso
+  let taps = 0, tapTimer = null;
+  $('.racket').addEventListener('click', () => {
+    taps++; clearTimeout(tapTimer); tapTimer = setTimeout(() => { taps = 0; }, 1500);
+    if(taps >= 5){ taps = 0; if(!editOn) openAccess(); }
+  });
+  function startAccess(){
+    const wants = /(^|[?&])modifica(=|&|$)/.test(location.search || '');
+    if(wants && !editOn) openAccess(); else if(wants) cleanUrl();
+    if(editOn){
+      checkToken(token).then(r => {
+        if(r.bad){ dropToken(); openAccess(r.msg + ' L\'accesso è stato disattivato su questo dispositivo.'); }
+      });
+    }
+    const d = new Date(), z = n => String(n).padStart(2, '0');
+    $('#f-date').value = `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
+    setAddFmt('tre');
+  }
+
   // navigazione tra schermate
-  const SCREENS = ['classifica', 'risultati', 'coppie'];
+  const SCREENS = ['classifica', 'risultati', 'coppie', 'aggiungi'];
+  const visibleScreens = () => editOn ? SCREENS : SCREENS.filter(x => x !== 'aggiungi');
   let current = 'classifica';
   function go(name){
-    if(!SCREENS.includes(name)) name = 'classifica';
+    if(!visibleScreens().includes(name)) name = 'classifica';
     current = name;
+    $('#fmtbar').hidden = name === 'aggiungi';
     document.querySelectorAll('.blk[data-screen]').forEach(s => s.classList.toggle('on', s.dataset.screen === name));
     document.querySelectorAll('#tabs a').forEach(a => {
       if(a.dataset.go === name) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
@@ -637,26 +931,27 @@ input[type=number]{text-align:center; padding-inline:4px}
   }
   window.addEventListener('hashchange', () => { go(location.hash.slice(1)); window.scrollTo(0, 0); });
   go(location.hash.slice(1));
+  applyEdit();
+  startAccess();
   // scorrimento con il dito: sinistra e destra cambiano schermata (non sopra tabelle e campi)
   let sx = 0, sy = 0, swipeOk = false;
   document.addEventListener('touchstart', e => {
     const t = e.touches[0]; sx = t.clientX; sy = t.clientY;
-    swipeOk = e.touches.length === 1 && !e.target.closest('.tw, input, select, textarea, nav');
+    swipeOk = e.touches.length === 1 && !e.target.closest('.tw, input, select, textarea, nav, .addform');
   }, {passive:true});
   document.addEventListener('touchend', e => {
     if(!swipeOk) return;
     const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy;
     if(Math.abs(dx) > 80 && Math.abs(dy) < 45){
-      const i = SCREENS.indexOf(current) + (dx < 0 ? 1 : -1);
-      if(i >= 0 && i < SCREENS.length) location.hash = SCREENS[i];
+      const list = visibleScreens(), i = list.indexOf(current) + (dx < 0 ? 1 : -1);
+      if(i >= 0 && i < list.length) location.hash = list[i];
     }
   }, {passive:true});
 
   // avvio
   A = analyze([]); renderAll();
 
-  fetch('partite.json', {cache:'no-store'})
-    .then(r => { if(!r.ok) throw new Error(r.status); return r.json(); })
+  loadData()
     .then(j => {
       matches = Array.isArray(j.partite) ? j.partite : [];
       reanalyze();
