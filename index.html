@@ -115,7 +115,7 @@ td.rank{color:var(--ink2)}
 th.l,td.l{text-align:left}
 td.name{font-weight:600; white-space:normal}
 td.rank{font-family:var(--display); font-size:18px}
-tr.lead td.rank{color:var(--accent-ink); font-size:20px; font-weight:700}
+tr.lead td.rank{color:var(--accent-ink); font-weight:700}
 .pct{display:flex; align-items:center; gap:10px; justify-content:flex-end}
 .pct .trk{width:96px; height:6px; background:var(--track); border-radius:3px; overflow:hidden; flex:none}
 .pct .trk i{display:block; height:100%; background:var(--accent); border-radius:0 3px 3px 0}
@@ -129,7 +129,13 @@ tr.lead td.rank{color:var(--accent-ink); font-size:20px; font-weight:700}
 .lb-a{display:none}
 .nmw{display:flex; align-items:baseline; gap:2px}
 .nmt{white-space:nowrap}
-[data-board=pairs] .nmt{white-space:normal; min-width:7.5em}
+[data-board=pairs] .nmt{white-space:nowrap}
+/* ===== DIMENSIONE DEI CARATTERI DELLE CLASSIFICHE (modificabile a mano) =====
+   --fs-tab: caratteri della tabella in vista Normale; --fs-tab-c: in vista Compatta.
+   Le righe hanno sempre la stessa altezza perché i nomi non vanno mai a capo. */
+:root{--fs-tab:15px; --fs-tab-c:13px}
+[data-board] td:not(.rank){font-size:var(--fs-tab); line-height:1.25}
+body.compact [data-board] td:not(.rank){font-size:var(--fs-tab-c)}
 
 /* schede risultato */
 .cards{display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px}
