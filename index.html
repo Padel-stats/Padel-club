@@ -261,9 +261,28 @@ body.compact [data-board] td{white-space:nowrap}
 body.compact [data-board] .form5{gap:2px}
 body.compact [data-board] .form5 span{width:15px; height:15px; font-size:9px; border-radius:3px}
 
+/* tabelle per formato (statistiche) */
+.note{font-size:12px; color:var(--ink2); margin:0; line-height:1.4}
+.z{color:var(--ink2); opacity:.55}
+table.pf{min-width:0}
+table.pf th,table.pf td{padding:8px 2px; font-size:12px; line-height:1.25; text-align:right}
+table.pf th{font-size:10px; letter-spacing:0}
+table.pf th.pl,table.pf td.pn{text-align:left; white-space:nowrap; padding-left:8px; padding-right:4px}
+table.pf th.grp{text-align:center; border-bottom:0; padding-bottom:2px}
+table.pf .sep,table.mini .sep{border-left:1px solid var(--line)}
+table.vp th,table.vp td{padding:8px 4px; font-size:13px}
+table.vp th{font-size:10px; letter-spacing:0}
+table.vp th:first-child,table.vp td:first-child{padding-left:0}
+table.vp td.name{font-size:13px}
+table.pf td.pn{font-weight:600}
+table.pf .pfr{display:inline-block; min-width:1.5em; color:var(--ink2); font-family:var(--display); font-weight:600}
+table.pf tr.me td{background:var(--surface)}
+table.pf tr.me td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+
 /* calendario consigliato */
 table.cal{min-width:0}
 table.cal th,table.cal td{white-space:normal; text-align:left; vertical-align:top; padding:10px 8px}
+table.cal td.calfm{white-space:normal} table.cal td b.need{display:block; margin-top:2px}
 table.cal td small{display:block; color:var(--ink2); font-size:12px; font-weight:400}
 table.cal td.opt{font-family:var(--display); font-weight:700; white-space:nowrap}
 table.cal tr.best td{background:var(--surface)}
@@ -415,6 +434,15 @@ table.cal tr.best td{background:var(--surface)}
     <div class="viewrow"><span class="vt">Vista</span><span class="vl on" data-view="normal">Normale</span><button class="vswitch" type="button" role="switch" aria-checked="false" aria-label="Vista compatta"><span class="thumb"></span></button><span class="vl" data-view="compact">Compatta</span></div>
     <p class="sub count" data-r="count" aria-live="polite"></p>
     <div data-r="table"></div>
+  </section>
+
+  <section class="blk" data-screen="coppia" aria-labelledby="cName">
+    <div>
+      <a class="back" href="#coppie">← Coppie</a>
+      <h2 id="cName"></h2>
+      <p class="sub" id="cSub"></p>
+    </div>
+    <div id="cBody"></div>
   </section>
 
   <section class="blk" data-screen="calendario" aria-labelledby="h-cal">
@@ -598,7 +626,8 @@ table.cal tr.best td{background:var(--surface)}
   const pct = o => o.pg ? o.v / o.pg : 0;
   const FMT_LABEL = {tre:'Al meglio dei 3', singolo:'Set singolo'};
   const plink = n => `<a class="plink" href="#giocatore/${encodeURIComponent(clean(n).toLowerCase())}">${esc(n)}</a>`;
-  const nameHtml = (p, links) => { const ns = p.names || [p.name]; return links ? ns.map(plink).join(' e ') : esc(ns.join(' e ')); };
+  const pairLink = p => `<a class="plink" href="#coppia/${encodeURIComponent(p.key)}">${esc(p.name)}</a>`;
+  const nameHtml = (p, links, kind) => { const ns = p.names || [p.name]; if(!links) return esc(ns.join(' e ')); return kind === 'pairs' ? pairLink(p) : ns.map(plink).join(' e '); };
   const diff = o => o.gw - o.gl;
   const fmtDiff = n => n > 0 ? '+' + n : n < 0 ? '−' + Math.abs(n) : '0';
   function fmtDate(s){
@@ -640,7 +669,7 @@ table.cal tr.best td{background:var(--surface)}
     return B;
   }
   makeBoard('players', {links:true, noun:'giocatori', empty:'La classifica compare dopo la prima partita.', list:() => A.players, store:'padel-colonne-nascoste'});
-  makeBoard('pairs', {noun:'coppie', empty:'Le coppie compaiono dopo la prima partita.', list:() => A.pairs, store:'padel-colonne-coppie-nascoste'});
+  makeBoard('pairs', {links:true, noun:'coppie', empty:'Le coppie compaiono dopo la prima partita.', list:() => A.pairs, store:'padel-colonne-coppie-nascoste'});
   const boardOf = el => { const r = el.closest && el.closest('[data-board]'); return r ? boards[r.dataset.board] : null; };
 
   // stesso criterio per giocatori e coppie: punti, poi % vittorie, vinte, differenza giochi, giocate, nome
@@ -685,7 +714,7 @@ table.cal tr.best td{background:var(--surface)}
     pod.style.gridTemplateColumns = `repeat(${order.length},minmax(0,1fr))`;
     pod.innerHTML = order.map(i => {
       const p = all[i];
-      return `<div class="pod p${i + 1}"><span class="nm">${nameHtml(p, B.links)}</span><span class="st">${p.v} vinte, ${p.s} perse</span>` +
+      return `<div class="pod p${i + 1}"><span class="nm">${nameHtml(p, B.links, B.kind)}</span><span class="st">${p.v} vinte, ${p.s} perse</span>` +
         `<div class="blk2"><span class="n">${i + 1}</span><span class="pc">${p.pt} pt</span></div></div>`;
     }).join('');
     renderBoardControls(B);
@@ -721,7 +750,7 @@ table.cal tr.best td{background:var(--surface)}
     }).join('');
     const cell = {
       pos:  p => `<td class="rank">${p.rank}</td>`,
-      name: p => `<td class="name l"><span class="nmw"><span class="rk">${p.rank}</span><span class="nmt">${nameHtml(p, B.links)}</span></span></td>`,
+      name: p => `<td class="name l"><span class="nmw"><span class="rk">${p.rank}</span><span class="nmt">${nameHtml(p, B.links, B.kind)}</span></span></td>`,
       pt:   p => `<td><b>${p.pt}</b></td>`,
       elo:  p => `<td>${Math.round(p.elo)}</td>`,
       pg:   p => `<td>${p.pg}</td>`,
@@ -784,6 +813,7 @@ table.cal tr.best td{background:var(--surface)}
     renderFmtbar(); renderBoard(boards.players); renderBoard(boards.pairs); renderResults();
     renderCmp();
     if(current === 'giocatore') renderProfile();
+    if(current === 'coppia') renderCoppia();
     if(editOn){ renderAddNames(); renderEditList(); renderCal(); }
   }
 
@@ -807,7 +837,7 @@ table.cal tr.best td{background:var(--surface)}
       msg.textContent = present.length < 4 ? `Presenti: ${present.length} su 4. Spunta ${4 - present.length === 1 ? 'ancora 1 giocatore' : 'ancora ' + (4 - present.length) + ' giocatori'}.` : `Hai spuntato ${present.length} giocatori: ne servono esattamente 4.`;
       msg.className = 'status'; out.innerHTML = ''; return;
     }
-    msg.textContent = ''; 
+    msg.textContent = '';
     const pc = new Map();
     const add = (ks, f) => { const k = pairKey(ks), o = pc.get(k) || {tre:0, singolo:0}; o[f]++; pc.set(k, o); };
     AF.log.forEach(e => { add(e.a.keys, e.fmt); add(e.b.keys, e.fmt); });
@@ -816,20 +846,28 @@ table.cal tr.best td{background:var(--surface)}
     const pname = pr => esc(nm(pr[0]) + ' e ' + nm(pr[1]));
     const [a, b, c, d] = present;
     const pairings = [[[a, b], [c, d]], [[a, c], [b, d]], [[a, d], [b, c]]];
-    const opts = [];
-    pairings.forEach((pg, i) => ['tre', 'singolo'].forEach(f => {
-      const x = cnt(pg[0], f), y = cnt(pg[1], f);
-      opts.push({pg, f, i, x, y, need:x + y, mx:Math.max(x, y), tot:cnt(pg[0], 'tre') + cnt(pg[0], 'singolo') + cnt(pg[1], 'tre') + cnt(pg[1], 'singolo')});
-    }));
-    opts.sort((p, q) => p.need - q.need || p.mx - q.mx || p.tot - q.tot || p.i - q.i);
-    const first = opts.find(o => o.f === 'tre');            // il primo match è di solito al meglio dei 3
-    const list = [first].concat(opts.filter(o => o !== first));
+    // per ogni formato: ogni coppia di compagni deve arrivare almeno al numero più alto già raggiunto da una delle 6 coppie
+    const plan = f => {
+      const T = Math.max(...pairings.flatMap(pg => pg.map(pr => cnt(pr, f))));
+      let rows = pairings.map((pg, i) => { const x = cnt(pg[0], f), y = cnt(pg[1], f); return {pg, i, f, x, y, need:Math.max(0, T - Math.min(x, y))}; });
+      const giro = rows.every(r => r.need === 0);
+      if(giro) rows.forEach(r => { r.need = 1; });
+      rows = rows.filter(r => r.need > 0).sort((p, q) => q.need - p.need || (p.x + p.y) - (q.x + q.y) || p.i - q.i);
+      return {goal:giro ? T + 1 : T, giro, rows, total:rows.reduce((t, r) => t + r.need, 0)};
+    };
+    const P3 = plan('tre'), PS = plan('singolo');
+    const list = P3.rows.concat(PS.rows);
     const times = n => n === 0 ? 'mai insieme in questo formato' : 'già insieme ' + plural(n, 'volta', 'volte');
-    out.innerHTML = `<div class="tw"><table class="cal"><thead><tr><th>Opzione</th><th>Coppia A</th><th>Coppia B</th><th>Formato</th></tr></thead><tbody>` +
+    const part = (P, nome) => P.giro
+      ? `${nome}: siete già in pari, propongo un nuovo giro (ogni coppia arriva a ${P.goal}).`
+      : `${nome}: ${plural(P.total, 'partita', 'partite')} per portare ogni coppia ad almeno ${P.goal}.`;
+    out.innerHTML =
+      `<p style="margin:0"><b>${part(P3, 'Al meglio dei 3')}</b><br><b>${part(PS, 'Set singolo')}</b></p>` +
+      `<div class="tw"><table class="cal"><thead><tr><th>Opz.</th><th>Coppia A</th><th>Coppia B</th><th>Formato e volte da giocare</th></tr></thead><tbody>` +
       list.map((o, n) => `<tr${n === 0 ? ' class="best"' : ''}><td class="opt">${n + 1}</td>` +
         `<td>${pname(o.pg[0])}<small>${times(o.x)}</small></td><td>${pname(o.pg[1])}<small>${times(o.y)}</small></td>` +
-        `<td class="calfmt">${FMT_LABEL[o.f]}</td></tr>`).join('') + `</tbody></table></div>` +
-      `<p class="sub">L'opzione 1 è il primo match al meglio dei 3. Le altre sono in ordine di priorità: in alto le coppie che hanno giocato meno insieme in quel formato. Conta tutte le partite registrate, senza filtri.</p>`;
+        `<td class="calfm">${FMT_LABEL[o.f]}<b class="need">${o.need} ${o.need === 1 ? 'volta' : 'volte'}</b></td></tr>`).join('') + `</tbody></table></div>` +
+      `<p class="sub">Prima ci sono tutte le partite al meglio dei 3 che mancano, poi quelle a set singolo: dopo la prima partita deciderete voi, in base al tempo, se passare ai set singoli. Se le due coppie di una sfida hanno giocato un numero diverso di volte, la differenza non si recupera con quella sfida: si arriva almeno al numero più alto. Conta tutte le partite registrate, senza filtri.</p>`;
   }
   document.addEventListener('change', e => {
     const t = e.target;
@@ -967,12 +1005,65 @@ table.cal tr.best td{background:var(--surface)}
     const o = map.get(k); o.pg++; win ? o.v++ : o.s++;
   }
 
-  function partnerFmtRows(key){
-    const m = new Map();
-    AF.players.forEach(q => { if(q.key !== key) m.set(q.key, {name:q.name, tre:0, singolo:0}); });
-    AF.log.forEach(e => { const mine = e.a.keys.includes(key) ? e.a : e.b.keys.includes(key) ? e.b : null; if(!mine) return; const o = m.get(mine.keys.find(k => k !== key)); if(o) o[e.fmt]++; });
-    return [...m.values()].sort((x, y) => (y.tre + y.singolo) - (x.tre + x.singolo) || x.name.localeCompare(y.name, 'it'))
-      .map(o => `<tr><td class="name l">${plink(o.name)}</td><td>${o.tre}</td><td>${o.singolo}</td><td><b>${o.tre + o.singolo}</b></td></tr>`).join('');
+  // ===== tabelle per formato (sempre su tutte le partite, senza filtro) =====
+  const cmpRank = (a, b) => b.pt - a.pt || pct(b) - pct(a) || b.v - a.v || diff(b) - diff(a) || b.pg - a.pg || a.name.localeCompare(b.name, 'it');
+  const zero = () => ({tre:[0, 0, 0], singolo:[0, 0, 0]});
+  const bumpF = (m, k, f, win) => { const o = m.get(k) || zero(); const x = o[f]; x[0]++; win ? x[1]++ : x[2]++; m.set(k, o); };
+  function formatBoard(kind, meKey){
+    const M = new Map();
+    AF.log.forEach(e => [e.a, e.b].forEach(t => { if(kind === 'players') t.keys.forEach(k => bumpF(M, k, e.fmt, t.win)); else bumpF(M, t.pair, e.fmt, t.win); }));
+    const list = (kind === 'players' ? AF.players : AF.pairs).slice().sort(cmpRank);
+    const rows = list.map((p, i) => {
+      const o = M.get(p.key) || zero();
+      const cells = [o.tre[0] + o.singolo[0], o.tre[1] + o.singolo[1], o.tre[2] + o.singolo[2]].concat(o.tre, o.singolo);
+      return `<tr${p.key === meKey ? ' class="me"' : ''}><td class="pn"><span class="pfr">${i + 1}</span>${kind === 'players' ? plink(p.name) : pairLink(p)}</td>` +
+        cells.map((x, k) => `<td${k % 3 === 0 ? ' class="sep"' : ''}>${x ? x : '<span class="z">0</span>'}</td>`).join('') + '</tr>';
+    }).join('');
+    const gp = '<th class="sep">G</th><th>V</th><th>P</th>';
+    return `<div class="tw"><table class="pf"><thead><tr><th class="pl" rowspan="2" style="vertical-align:bottom">${kind === 'players' ? 'Giocatore' : 'Coppia'}</th><th class="grp sep" colspan="3">Totale</th><th class="grp sep" colspan="3">3 set</th><th class="grp sep" colspan="3">Singolo</th></tr><tr>${gp}${gp}${gp}</tr></thead><tbody>${rows}</tbody></table></div>` +
+      `<p class="note"><b>G</b> giocate · <b>V</b> vinte · <b>P</b> perse. La riga evidenziata è quella aperta. Contano sempre tutte le partite, anche con il filtro formato attivo.</p>`;
+  }
+  const vpCell = x => x[0] ? `<b>${x[1]}</b>–${x[2]}` : '<span class="z">–</span>';
+  function vpTable(label, entries){
+    const g = o => o.tre[0] + o.singolo[0];
+    const rows = entries.slice().sort((x, y) => g(y) - g(x) || x.name.localeCompare(y.name, 'it')).map(o => {
+      const G = g(o), V = o.tre[1] + o.singolo[1];
+      return `<tr><td class="name l">${o.html}</td><td>${G ? G : '<span class="z">0</span>'}</td><td class="sep">${vpCell(o.tre)}</td><td class="sep">${vpCell(o.singolo)}</td><td class="sep">${G ? Math.round(V / G * 100) + '%' : '<span class="z">–</span>'}</td></tr>`;
+    }).join('');
+    return `<div class="tw"><table class="mini vp"><thead><tr><th class="l">${label}</th><th>G</th><th class="sep">3 set V–P</th><th class="sep">Singolo V–P</th><th class="sep">%</th></tr></thead><tbody>${rows}</tbody></table></div>` +
+      `<p class="note"><b>G</b> giocate · <b>3 set V–P</b> vinte–perse al meglio dei 3 · <b>Singolo V–P</b> vinte–perse a set singolo · <b>%</b> vittorie totali. Il trattino indica nessuna partita in quel formato. Contano sempre tutte le partite, anche con il filtro formato attivo.</p>`;
+  }
+  const cell3 = (m, k, name, html) => m.get(k) || (m.set(k, {name, html, ...zero()}), m.get(k));
+  function renderCoppia(){
+    if(!A) return;
+    const c = A.pairs.find(x => x.key === currentKey);
+    const body = $('#cBody');
+    if(!c){
+      $('#cName').textContent = 'Coppia non trovata';
+      $('#cSub').textContent = fmtFilter ? 'Questa coppia non ha partite nel formato selezionato.' : 'Controlla il nome oppure torna alle coppie.';
+      body.innerHTML = ''; return;
+    }
+    ranked(boards.pairs);
+    $('#cName').textContent = c.name;
+    $('#cSub').textContent = 'Statistiche calcolate su: ' + (fmtFilter ? FMT_LABEL[fmtFilter] : 'tutte le partite') + '.';
+    const tile = (lab, val) => `<div class="tile"><span>${lab}</span><b>${val}</b></div>`;
+    const formHtml = `<span class="form5" aria-label="Ultime partite">${c.form.slice(-5).map(w => w ? '<span class="w" title="Vinta">V</span>' : '<span class="s" title="Persa">S</span>').join('')}</span>`;
+    const opp = new Map();
+    AF.log.filter(e => e.a.pair === c.key || e.b.pair === c.key).forEach(e => {
+      const mine = e.a.pair === c.key ? e.a : e.b, other = mine === e.a ? e.b : e.a;
+      const q = AF.pairs.find(x => x.key === other.pair);
+      const o = cell3(opp, other.pair, q.name, pairLink(q)); const x = o[e.fmt]; x[0]++; mine.win ? x[1]++ : x[2]++;
+    });
+    body.innerHTML =
+      `<div class="tiles">` +
+        tile('Posizione', '#' + c.rank) + tile('Punti', c.pt) + tile('ELO', Math.round(c.elo)) +
+        tile('Giocate', c.pg) + tile('Vinte', c.v) + tile('Perse', c.s) + tile('% vittorie', pctTxt(c)) +
+        tile('Punti a partita', num1(c.pg ? c.pt / c.pg : 0)) +
+        tile('Set vinti - persi', c.sw + ' - ' + c.sl) + tile('Giochi vinti - persi', c.gw + ' - ' + c.gl) +
+        tile('Diff. giochi', fmtDiff(diff(c))) + `<div class="tile"><span>Forma</span>${formHtml}</div>` +
+      `</div>` +
+      `<div class="pblock"><h3 class="h3">Per formato · tutte le coppie</h3>${formatBoard('pairs', c.key)}</div>` +
+      `<div class="pblock"><h3 class="h3">Sfide contro altre coppie</h3>${vpTable('Avversari', [...opp.values()])}</div>`;
   }
   function renderProfile(){
     if(!A) return;
@@ -1001,7 +1092,11 @@ table.cal tr.best td{background:var(--surface)}
     const w20 = tre.filter(g => g.win && g.sl === 0).length, l02 = tre.filter(g => !g.win && g.sw === 0).length;
     // compagni e avversari
     const partners = new Map(), opps = new Map();
-    L.forEach(g => { tally(partners, g.partner.key, g.partner.name, g.win); g.opp.forEach(o => tally(opps, o.key, o.name, g.win)); });
+    AF.players.forEach(q => { if(q.key !== p.key) cell3(partners, q.key, q.name, plink(q.name)); });
+    AF.log.filter(e => e.a.keys.includes(p.key) || e.b.keys.includes(p.key)).map(e => persp(e, p.key)).forEach(g => {
+      const bump = (m, k, name) => { const o = cell3(m, k, name, plink(name)); const x = o[g.fmt]; x[0]++; g.win ? x[1]++ : x[2]++; };
+      bump(partners, g.partner.key, g.partner.name); g.opp.forEach(o => bump(opps, o.key, o.name));
+    });
     const tile = (lab, val) => `<div class="tile"><span>${lab}</span><b>${val}</b></div>`;
     const formHtml = `<span class="form5" aria-label="Ultime partite">${p.form.slice(-5).map(w => w ? '<span class="w" title="Vinta">V</span>' : '<span class="s" title="Persa">S</span>').join('')}</span>`;
     const fact = (k, v) => `<div><dt>${k}</dt><dd>${v}</dd></div>`;
@@ -1025,9 +1120,9 @@ table.cal tr.best td{background:var(--surface)}
         fact('Vittorie 2-0', w20) + fact('Sconfitte 0-2', l02) +
         fact('Partite al terzo set', terzo.length ? `${terzo.filter(g => g.win).length} vinte, ${terzo.filter(g => !g.win).length} perse` : 'nessuna') +
       `</dl></div>` +
-      `<div class="pblock"><h3 class="h3">Con quale compagno</h3>${miniTable(['Compagno', 'G', 'V', 'P', '%'], groupRows(partners))}</div>` +
-      `<div class="pblock"><h3 class="h3">Partite insieme per formato</h3><p class="sub" style="margin:0">Quante volte hai giocato in coppia con ciascun compagno (tutte le partite, senza filtro).</p>${miniTable(['Compagno', 'Al meglio dei 3', 'Set singolo', 'Totale'], partnerFmtRows(p.key))}</div>` +
-      `<div class="pblock"><h3 class="h3">Contro chi</h3>${miniTable(['Avversario', 'G', 'V', 'P', '%'], groupRows(opps))}</div>` +
+      `<div class="pblock"><h3 class="h3">Per formato · tutti i giocatori</h3>${formatBoard('players', p.key)}</div>` +
+      `<div class="pblock"><h3 class="h3">Con quale compagno</h3>${vpTable('Compagno', [...partners.values()])}</div>` +
+      `<div class="pblock"><h3 class="h3">Contro chi</h3>${vpTable('Avversario', [...opps.values()])}</div>` +
       `<div class="pblock"><h3 class="h3">Ultime partite</h3><ul class="mlist">${last}</ul></div>`;
   }
 
@@ -1473,32 +1568,33 @@ table.cal tr.best td{background:var(--surface)}
   }
 
   // navigazione tra schermate
-  const SCREENS = ['classifica', 'coppie', 'risultati', 'confronto', 'aggiungi', 'calendario', 'giocatore'];
+  const SCREENS = ['classifica', 'coppie', 'risultati', 'confronto', 'aggiungi', 'calendario', 'giocatore', 'coppia'];
   const DETAIL_KEY = 'padel-dettagli';
   let unlocked = false;
   try { unlocked = sessionStorage.getItem(DETAIL_KEY) === '1'; } catch(_){}
   document.addEventListener('click', e => {
     const a = e.target.closest && e.target.closest('a.plink');
-    if(a && a.closest('[data-board="players"]')){ unlocked = true; try { sessionStorage.setItem(DETAIL_KEY, '1'); } catch(_){} }
+    if(a && a.closest('[data-board]')){ unlocked = true; try { sessionStorage.setItem(DETAIL_KEY, '1'); } catch(_){} }
   }, true);
   const visibleScreens = () => editOn ? SCREENS : SCREENS.filter(x => x !== 'aggiungi' && x !== 'calendario');
   const navScreens = () => ['classifica', 'coppie', 'risultati'].concat(editOn ? ['aggiungi', 'calendario'] : []);
   let current = 'classifica', currentKey = '';
   function parseHash(){
-    const h = location.hash.slice(1), m = h.match(/^giocatore\/(.+)$/);
+    const h = location.hash.slice(1), m = h.match(/^(giocatore|coppia)\/(.+)$/);
     if(!m) return {name:h, key:''};
-    let k = m[1]; try { k = decodeURIComponent(k); } catch(_){}
-    return {name:'giocatore', key:k.toLowerCase()};
+    let k = m[2]; try { k = decodeURIComponent(k); } catch(_){}
+    return {name:m[1], key:k.toLowerCase()};
   }
   function go(name, key){
-    if(!visibleScreens().includes(name) || ((name === 'giocatore' || name === 'confronto') && !unlocked)) name = 'classifica';
-    current = name; currentKey = name === 'giocatore' ? (key || '') : '';
+    if(!visibleScreens().includes(name) || ((name === 'giocatore' || name === 'confronto' || name === 'coppia') && !unlocked)) name = 'classifica';
+    current = name; currentKey = (name === 'giocatore' || name === 'coppia') ? (key || '') : '';
     $('#fmtbar').hidden = name === 'aggiungi' || name === 'calendario';
     document.querySelectorAll('.blk[data-screen]').forEach(s => s.classList.toggle('on', s.dataset.screen === name));
     document.querySelectorAll('#tabs a').forEach(a => {
-      if(a.dataset.go === (name === 'giocatore' || name === 'confronto' ? 'classifica' : name)) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+      if(a.dataset.go === (name === 'giocatore' || name === 'confronto' ? 'classifica' : name === 'coppia' ? 'coppie' : name)) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
     if(name === 'giocatore') renderProfile();
+    if(name === 'coppia') renderCoppia();
     if(name === 'confronto') renderCmp();
   }
   window.addEventListener('hashchange', () => { const h = parseHash(); go(h.name, h.key); window.scrollTo(0, 0); });
