@@ -281,14 +281,21 @@ table.pf tr.me td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
 
 /* calendario consigliato */
 table.cal{min-width:0}
+.calopt{display:flex; flex-direction:column; gap:8px; margin-bottom:8px} .calopt .seg{flex-wrap:wrap; align-self:flex-start}
+.news ul{margin:6px 0 8px; padding-left:18px} .news a{font-weight:600; color:var(--accent-ink)}
+.news .newsx{float:right; appearance:none; border:0; background:transparent; font-size:22px; line-height:1; cursor:pointer; color:var(--ink2); padding:0 4px}
+.tabs a{position:relative} .tabs .dot{position:absolute; top:8px; right:calc(50% - 22px); width:9px; height:9px; border-radius:50%; background:var(--accent)}
 table.cal th,table.cal td{white-space:normal; text-align:left; vertical-align:top; padding:10px 8px}
-table.cal td.calfm{white-space:normal} table.cal td b.need{display:block; margin-top:2px}
+table.cal td.calfm{white-space:normal} table.cal td.calfm div{margin-bottom:2px}
 table.cal td small{display:block; color:var(--ink2); font-size:12px; font-weight:400}
 table.cal td.opt{font-family:var(--display); font-weight:700; white-space:nowrap}
 table.cal tr.best td{background:var(--surface)}
 .calfmt{white-space:nowrap}
 
 /* formato partite */
+.yearbar{display:flex; gap:8px; overflow-x:auto; margin-top:-12px; padding:2px 2px 6px; scrollbar-width:thin}
+.yearbar button{flex:none; padding:8px 16px; border:1px solid var(--line); border-radius:999px; font:inherit; font-weight:600; font-size:14px; background:var(--surface); color:var(--ink); cursor:pointer}
+.yearbar button[aria-pressed=true]{background:var(--accent); border-color:var(--accent); color:var(--on-accent)}
 .fmtbar{display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center; margin-top:-12px}
 .fmtbar > span{font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink2)}
 .fmtbar .seg{flex-wrap:wrap}
@@ -350,9 +357,12 @@ table.cal tr.best td{background:var(--surface)}
     <a href="#calendario" data-go="calendario" id="tabCal" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg><span>Calendario</span></a>
   </nav>
 
+  <div class="yearbar" id="yearbar"></div>
   <div class="fmtbar" id="fmtbar"></div>
 
   <div class="notice" id="notice" hidden></div>
+
+  <div class="notice news" id="news" hidden></div>
 
   <div class="notice install" id="install" hidden></div>
 
@@ -385,7 +395,7 @@ table.cal tr.best td{background:var(--surface)}
     <p class="sub count" data-r="count" aria-live="polite"></p>
     <div data-r="table"></div>
     <details class="rules">
-      <summary>Come funzionano punti ed ELO</summary>
+      <summary>Come funzionano i punti</summary>
       <div class="rules-body">
         <ul class="pts">
           <li><span>Al meglio dei 3, vittoria 2-0</span><b>5 punti</b></li>
@@ -396,9 +406,7 @@ table.cal tr.best td{background:var(--surface)}
           <li><span>Set singolo, sconfitta 0-1</span><b>1 punto</b></li>
         </ul>
         <p>I punti vanno a entrambi i giocatori della coppia e la colonna Punti è la somma di tutte le partite.</p>
-        <p>L'ELO parte da 1000 per tutti. Le partite si elaborano in ordine di data: dopo ognuna la coppia vincente guadagna punti ELO e quella perdente ne perde lo stesso numero. Vincere contro una coppia più forte vale di più, perdere contro una più debole costa di più. Conta solo vincere o perdere, non il punteggio. Al massimo una partita sposta 32 punti.</p>
-        <p>Nella scheda Coppie vale lo stesso schema, ma l'ELO è quello della coppia: parte da 1000 ed è calcolato solo sulle partite giocate insieme da quei due giocatori.</p>
-        <p>Se scegli un formato nel selettore "Partite", punti ed ELO sono calcolati solo sulle partite di quel formato.</p>
+        <p>Se scegli un formato nel selettore "Partite", i punti sono calcolati solo sulle partite di quel formato.</p>
       </div>
     </details>
   </section>
@@ -448,9 +456,10 @@ table.cal tr.best td{background:var(--surface)}
   <section class="blk" data-screen="calendario" aria-labelledby="h-cal">
     <div>
       <h2 id="h-cal">Prossime partite consigliate</h2>
-      <p class="sub">Spunta i 4 giocatori presenti. Ti propongo gli accoppiamenti che riequilibrano le partite giocate insieme, separando al meglio dei 3 e set singolo.</p>
+      <p class="sub">Spunta i 4 giocatori presenti, scegli come costruire le partite e ti propongo gli accoppiamenti.</p>
     </div>
     <div class="panel2">
+      <div class="calopt" id="calMode"></div>
       <div class="chk" id="calPresent" role="group" aria-label="Giocatori presenti"></div>
       <p class="status" id="calMsg" aria-live="polite"></p>
     </div>
@@ -545,9 +554,8 @@ table.cal tr.best td{background:var(--surface)}
   const $ = s => document.querySelector(s);
   const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const clean = s => String(s == null ? '' : s).trim().replace(/\s+/g, ' ');
-  const ELO_START = 1000, ELO_K = 32; // ELO: tutti partono da 1000, una partita sposta al massimo 32 punti
 
-  let matches = [], filter = '', fmtFilter = '', showAll = false, A = null, AF = null;
+  let matches = [], filter = '', fmtFilter = '', showAll = false, A = null, AF = null, AALL = null, ACAL = null, calYear = '', season = '';
 
   // formato: "set-singolo" oppure "meglio-di-3"; se manca si deduce (1 set = singolo)
   function fmtOf(m){
@@ -575,7 +583,7 @@ table.cal tr.best td{background:var(--surface)}
     let sets = 0;
     const player = n => {
       const k = clean(n).toLowerCase();
-      if(!P.has(k)) P.set(k, {key:k, name:clean(n), pg:0, v:0, s:0, sw:0, sl:0, gw:0, gl:0, pt:0, elo:ELO_START, form:[]});
+      if(!P.has(k)) P.set(k, {key:k, name:clean(n), pg:0, v:0, s:0, sw:0, sl:0, gw:0, gl:0, pt:0, form:[]});
       return P.get(k);
     };
     for(const m of list){
@@ -594,25 +602,12 @@ table.cal tr.best td{background:var(--surface)}
         tinfo.push({keys:ps.map(p => p.key), names:ps.map(p => p.name), pair:key, win, pts, sw, sl, gw:gf, gl:gc});
         if(!C.has(key)){
           const names = ps.map(p => p.name).sort((x, y) => x.localeCompare(y, 'it'));
-          C.set(key, {key, names, name:names.join(' e '), pg:0, v:0, s:0, sw:0, sl:0, gw:0, gl:0, pt:0, elo:ELO_START, form:[]});
+          C.set(key, {key, names, name:names.join(' e '), pg:0, v:0, s:0, sw:0, sl:0, gw:0, gl:0, pt:0, form:[]});
         }
         const c = C.get(key); c.pg++; win ? c.v++ : c.s++; c.sw += sw; c.sl += sl; c.gw += gf; c.gl += gc; c.pt += pts; c.form.push(win); cps.push(c);
       }
-      // ELO: la forza di una coppia e' la media dei due giocatori; chi vince prende quello che la coppia avversaria cede
       const pa = m.a.map(player), pb = m.b.map(player);
-      const ra = (pa[0].elo + pa[1].elo) / 2, rb = (pb[0].elo + pb[1].elo) / 2;
-      const attesa = 1 / (1 + Math.pow(10, (rb - ra) / 400));
-      const variazione = ELO_K * ((aWin ? 1 : 0) - attesa);
-      pa.forEach(p => { p.elo += variazione; });
-      pb.forEach(p => { p.elo -= variazione; });
-      // ELO di coppia: ogni coppia ha il suo valore (parte da 1000) e cambia solo con le partite giocate insieme
-      const ea = 1 / (1 + Math.pow(10, (cps[1].elo - cps[0].elo) / 400));
-      const dv = ELO_K * ((aWin ? 1 : 0) - ea);
-      cps[0].elo += dv; cps[1].elo -= dv;
-      const delta = {}, after = {};
-      pa.forEach(p => { delta[p.key] = variazione; after[p.key] = p.elo; });
-      pb.forEach(p => { delta[p.key] = -variazione; after[p.key] = p.elo; });
-      log.push({data:m.data, fmt:fmtOf(m), set:m.set, a:tinfo[0], b:tinfo[1], delta, after});
+      log.push({data:m.data, fmt:fmtOf(m), set:m.set, a:tinfo[0], b:tinfo[1]});
       const W = aWin ? m.a : m.b, L = aWin ? m.b : m.a;
       rows.push({
         data:m.data, win:W.map(n => player(n).name), lose:L.map(n => player(n).name),
@@ -643,7 +638,6 @@ table.cal tr.best td{background:var(--surface)}
     {id:'pos',  label:'#',            get:p => p.rank,                                   dir:'asc'},
     {id:'name', label:'Giocatore',    get:p => p.name,                                   dir:'asc', text:true, always:true},
     {id:'pt',   label:'Punti', ab:'Pt',        get:p => p.pt,                                     dir:'desc'},
-    {id:'elo',  label:'ELO', ab:'ELO',          get:p => Math.round(p.elo),                        dir:'desc', hint:'parte da 1000'},
     {id:'pg',   label:'Giocate', ab:'G',      get:p => p.pg,                                     dir:'desc'},
     {id:'v',    label:'Vinte', ab:'V',        get:p => p.v,                                      dir:'desc'},
     {id:'s',    label:'Perse', ab:'P',        get:p => p.s,                                      dir:'desc'},
@@ -752,7 +746,6 @@ table.cal tr.best td{background:var(--surface)}
       pos:  p => `<td class="rank">${p.rank}</td>`,
       name: p => `<td class="name l"><span class="nmw"><span class="rk">${p.rank}</span><span class="nmt">${nameHtml(p, B.links, B.kind)}</span></span></td>`,
       pt:   p => `<td><b>${p.pt}</b></td>`,
-      elo:  p => `<td>${Math.round(p.elo)}</td>`,
       pg:   p => `<td>${p.pg}</td>`,
       v:    p => `<td>${p.v}</td>`,
       s:    p => `<td>${p.s}</td>`,
@@ -769,7 +762,7 @@ table.cal tr.best td{background:var(--surface)}
     const legend = vis.filter(c => LEG[c.id]).map(c => LEG[c.id]).join(' · ');
     B.q('table').innerHTML = `<div class="tw"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div><p class="legend">${legend}</p>`;
     const col = B.cols.find(c => c.id === B.sortCol);
-    B.q('count').textContent = `${ps.length} di ${total} ${B.noun}. Ordinata per ${col.id === 'elo' ? 'ELO' : col.label.toLowerCase()}, ${B.sortDir === 'asc' ? 'dal più basso al più alto' : 'dal più alto al più basso'}.`;
+    B.q('count').textContent = `${ps.length} di ${total} ${B.noun}. Ordinata per ${col.label.toLowerCase()}, ${B.sortDir === 'asc' ? 'dal più basso al più alto' : 'dal più alto al più basso'}.`;
     const n = activeFilters(B);
     B.q('fltN').textContent = n ? ' (' + n + ')' : '';
   }
@@ -796,13 +789,28 @@ table.cal tr.best td{background:var(--surface)}
     el.innerHTML = `<div class="cards">${cards}</div><div style="display:flex;justify-content:center;margin-top:14px">${more}</div>`;
   }
 
+  const yearOf = m => String((m && m.data) || '').slice(0, 4);
+  const seasonYears = () => [...new Set(matches.filter(valid).map(yearOf))].sort().reverse();
+  const inSeason = m => !season || yearOf(m) === season;
   function reanalyze(){
-    AF = analyze(matches);
-    A = analyze(matches.filter(m => !fmtFilter || (valid(m) && fmtOf(m) === fmtFilter)));
+    // stagione: di base si apre sempre su "Globale"; se l'anno scelto non esiste più si torna a Globale
+    const ys = seasonYears(), latest = ys[0] || '';
+    if(season && !ys.includes(season)) season = '';
+    const S = matches.filter(inSeason);
+    AALL = analyze(matches);                                  // tutti i giocatori, tutte le stagioni
+    AF = analyze(S);                                          // stagione scelta, tutti i formati
+    A = analyze(S.filter(m => !fmtFilter || (valid(m) && fmtOf(m) === fmtFilter)));
+    calYear = String(Math.max(new Date().getFullYear(), Number(latest) || 0));
+    ACAL = analyze(matches.filter(m => yearOf(m) === calYear)); // il calendario conta l'anno in corso
     renderAll();
   }
+  function renderYearbar(){
+    const ys = seasonYears(), bar = $('#yearbar');
+    bar.innerHTML = ys.length ? ['', ...ys].map(y => `<button type="button" data-season="${y || 'all'}" aria-pressed="${(season || 'all') === (y || 'all')}">${y || 'Globale'}</button>`).join('') : '';
+    bar.setAttribute('role', 'group'); bar.setAttribute('aria-label', 'Stagione');
+  }
   function renderFmtbar(){
-    const v = matches.filter(valid);
+    const v = matches.filter(valid).filter(inSeason);
     const n = {'':v.length, tre:v.filter(m => fmtOf(m) === 'tre').length, singolo:v.filter(m => fmtOf(m) === 'singolo').length};
     const opts = [['', 'Tutte'], ['tre', 'Al meglio dei 3'], ['singolo', 'Set singolo']];
     $('#fmtbar').innerHTML = '<span>Partite</span><div class="seg" role="group" aria-label="Formato delle partite">' +
@@ -810,7 +818,7 @@ table.cal tr.best td{background:var(--surface)}
   }
   function renderAll(){
     if(!A) return;
-    renderFmtbar(); renderBoard(boards.players); renderBoard(boards.pairs); renderResults();
+    renderYearbar(); renderFmtbar(); renderBoard(boards.players); renderBoard(boards.pairs); renderResults();
     renderCmp();
     if(current === 'giocatore') renderProfile();
     if(current === 'coppia') renderCoppia();
@@ -821,18 +829,26 @@ table.cal tr.best td{background:var(--surface)}
   const PRES_KEY = 'padel-presenti';
   let present = [];
   try { const v = JSON.parse(localStorage.getItem(PRES_KEY) || '[]'); if(Array.isArray(v)) present = v; } catch(_){}
-  const presentNow = () => present.filter(k => AF.players.some(p => p.key === k));
+  const presentNow = () => present.filter(k => AALL.players.some(p => p.key === k));
   const pairKey = ks => ks.slice().sort().join('|');
   function renderCal(){
-    if(!AF || !editOn) return;
-    const players = AF.players.slice().sort((x, y) => x.name.localeCompare(y.name, 'it'));
+    if(!AALL || !editOn) return;
+    const players = AALL.players.slice().sort((x, y) => x.name.localeCompare(y.name, 'it'));
     $('#calPresent').innerHTML = players.map(p => `<label><input type="checkbox" value="${esc(p.key)}"${present.includes(p.key) ? ' checked' : ''}> ${esc(p.name)}</label>`).join('');
     renderCalOut();
   }
+  const MODE_KEY = 'padel-calmodo', SRC_KEY = 'padel-calclassifica';
+  let calMode = 'partite', calSrc = 'globale';
+  try { const m = localStorage.getItem(MODE_KEY); if(['partite', 'classifica', 'entrambe'].includes(m)) calMode = m; const c = localStorage.getItem(SRC_KEY); if(c === 'anno' || c === 'globale') calSrc = c; } catch(_){}
+  const saveCal = () => { try { localStorage.setItem(MODE_KEY, calMode); localStorage.setItem(SRC_KEY, calSrc); } catch(_){} };
   function renderCalOut(){
-    const msg = $('#calMsg'), out = $('#calOut');
+    const msg = $('#calMsg'), out = $('#calOut'), mb = $('#calMode');
+    const modes = [['partite', 'In base alle partite giocate'], ['classifica', 'In base alla classifica'], ['entrambe', 'Entrambe']];
+    mb.innerHTML = '<div class="seg" role="group" aria-label="Come costruire le partite">' + modes.map(o => `<button type="button" data-calmode="${o[0]}" aria-pressed="${calMode === o[0]}">${o[1]}</button>`).join('') + '</div>' +
+      (calMode !== 'partite' ? '<div class="seg" role="group" aria-label="Classifica di riferimento">' +
+        [['globale', 'Classifica globale'], ['anno', 'Anno in corso (' + calYear + ')']].map(o => `<button type="button" data-calsrc="${o[0]}" aria-pressed="${calSrc === o[0]}">${o[1]}</button>`).join('') + '</div>' : '');
     const present = presentNow();
-    if(AF.players.length < 4){ msg.textContent = 'Servono almeno 4 giocatori con partite registrate.'; out.innerHTML = ''; return; }
+    if(AALL.players.length < 4){ msg.textContent = 'Servono almeno 4 giocatori con partite registrate.'; out.innerHTML = ''; return; }
     if(present.length !== 4){
       msg.textContent = present.length < 4 ? `Presenti: ${present.length} su 4. Spunta ${4 - present.length === 1 ? 'ancora 1 giocatore' : 'ancora ' + (4 - present.length) + ' giocatori'}.` : `Hai spuntato ${present.length} giocatori: ne servono esattamente 4.`;
       msg.className = 'status'; out.innerHTML = ''; return;
@@ -840,35 +856,70 @@ table.cal tr.best td{background:var(--surface)}
     msg.textContent = '';
     const pc = new Map();
     const add = (ks, f) => { const k = pairKey(ks), o = pc.get(k) || {tre:0, singolo:0}; o[f]++; pc.set(k, o); };
-    AF.log.forEach(e => { add(e.a.keys, e.fmt); add(e.b.keys, e.fmt); });
+    ACAL.log.forEach(e => { add(e.a.keys, e.fmt); add(e.b.keys, e.fmt); });
     const cnt = (pr, f) => (pc.get(pairKey(pr)) || {tre:0, singolo:0})[f];
-    const nm = k => AF.players.find(p => p.key === k).name;
+    const nm = k => AALL.players.find(p => p.key === k).name;
     const pname = pr => esc(nm(pr[0]) + ' e ' + nm(pr[1]));
     const [a, b, c, d] = present;
     const pairings = [[[a, b], [c, d]], [[a, c], [b, d]], [[a, d], [b, c]]];
-    // per ogni formato: ogni coppia di compagni deve arrivare almeno al numero più alto già raggiunto da una delle 6 coppie
+    const times = n => n === 0 ? 'mai insieme in questo formato' : 'già insieme ' + plural(n, 'volta', 'volte');
+    // --- in base alle partite: per ogni formato ogni coppia di compagni deve arrivare almeno al numero più alto già raggiunto
     const plan = f => {
       const T = Math.max(...pairings.flatMap(pg => pg.map(pr => cnt(pr, f))));
       let rows = pairings.map((pg, i) => { const x = cnt(pg[0], f), y = cnt(pg[1], f); return {pg, i, f, x, y, need:Math.max(0, T - Math.min(x, y))}; });
       const giro = rows.every(r => r.need === 0);
       if(giro) rows.forEach(r => { r.need = 1; });
       rows = rows.filter(r => r.need > 0).sort((p, q) => q.need - p.need || (p.x + p.y) - (q.x + q.y) || p.i - q.i);
-      return {goal:giro ? T + 1 : T, giro, rows, total:rows.reduce((t, r) => t + r.need, 0)};
+      return {goal:giro ? T + 1 : T, giro, rows};
     };
     const P3 = plan('tre'), PS = plan('singolo');
-    const list = P3.rows.concat(PS.rows);
-    const times = n => n === 0 ? 'mai insieme in questo formato' : 'già insieme ' + plural(n, 'volta', 'volte');
+    const gameRows = P3.rows.concat(PS.rows);                       // al meglio dei 3 sempre prima
     const part = (P, nome) => P.giro
       ? `${nome}: siete già in pari, propongo un nuovo giro (ogni coppia arriva a ${P.goal}).`
-      : `${nome}: ${plural(P.total, 'partita', 'partite')} per portare ogni coppia ad almeno ${P.goal}.`;
-    out.innerHTML =
-      `<p style="margin:0"><b>${part(P3, 'Al meglio dei 3')}</b><br><b>${part(PS, 'Set singolo')}</b></p>` +
-      `<div class="tw"><table class="cal"><thead><tr><th>Opz.</th><th>Coppia A</th><th>Coppia B</th><th>Formato e volte da giocare</th></tr></thead><tbody>` +
-      list.map((o, n) => `<tr${n === 0 ? ' class="best"' : ''}><td class="opt">${n + 1}</td>` +
-        `<td>${pname(o.pg[0])}<small>${times(o.x)}</small></td><td>${pname(o.pg[1])}<small>${times(o.y)}</small></td>` +
-        `<td class="calfm">${FMT_LABEL[o.f]}<b class="need">${o.need} ${o.need === 1 ? 'volta' : 'volte'}</b></td></tr>`).join('') + `</tbody></table></div>` +
-      `<p class="sub">Prima ci sono tutte le partite al meglio dei 3 che mancano, poi quelle a set singolo: dopo la prima partita deciderete voi, in base al tempo, se passare ai set singoli. Se le due coppie di una sfida hanno giocato un numero diverso di volte, la differenza non si recupera con quella sfida: si arriva almeno al numero più alto. Conta tutte le partite registrate, senza filtri.</p>`;
+      : `${nome}: ogni coppia di compagni deve arrivare ad almeno ${P.goal} ${P.goal === 1 ? 'partita' : 'partite'} insieme.`;
+    // --- in base alla classifica
+    const src = calSrc === 'anno' ? ACAL : AALL;
+    const stat = k => src.players.find(p => p.key === k) || {key:k, name:nm(k), pg:0, v:0, s:0, gw:0, gl:0, pt:0};
+    const rk = present.map(stat).sort(cmpRank).map(p => p.key);
+    const rkPairs = [[[rk[0], rk[3]], [rk[1], rk[2]]], [[rk[0], rk[2]], [rk[1], rk[3]]], [[rk[0], rk[1]], [rk[2], rk[3]]]];
+    const optOf = pg => rkPairs.findIndex(op => op.every(x => pg.some(y => pairKey(y) === pairKey(x))));
+    const rankIn = k => rk.indexOf(k) + 1;
+    const rkTxt = rk.map((k, i) => `${i + 1}° ${esc(nm(k))}`).join(' · ');
+    const fmtCell = f => `<div>${FMT_LABEL[f]}</div>`;
+    const pairCell = (pr, f, withRank) => `${pname(pr)}<small>${withRank ? pr.map(k => rankIn(k) + '°').sort().join(' + ') + ' · ' : ''}${times(cnt(pr, f))}</small>`;
+    const table = rows => `<div class="tw"><table class="cal"><thead><tr><th>Opz.</th><th>Coppia A</th><th>Coppia B</th><th>Formato</th></tr></thead><tbody>` +
+      rows.map((o, n) => `<tr${n === 0 ? ' class="best"' : ''}><td class="opt">${n + 1}</td><td>${pairCell(o.pg[0], o.f, o.rank)}</td><td>${pairCell(o.pg[1], o.f, o.rank)}</td><td class="calfm">${fmtCell(o.f)}</td></tr>`).join('') + `</tbody></table></div>`;
+    let html;
+    if(calMode === 'partite'){
+      html = `<p style="margin:0"><b>${part(P3, 'Al meglio dei 3')}</b><br><b>${part(PS, 'Set singolo')}</b></p>` + table(gameRows) +
+        `<p class="sub">Sotto ogni coppia: quante volte hanno già giocato insieme in quel formato. In alto le sfide al meglio dei 3, poi i set singoli: dopo la prima partita deciderete voi, in base al tempo, se passare ai set singoli. Se le due coppie di una sfida hanno giocato un numero diverso di volte, la differenza non si recupera con quella sfida: si arriva almeno al numero più alto. Conta le partite del ${calYear}, senza filtri.</p>`;
+    } else if(calMode === 'classifica'){
+      const rows = rkPairs.map((pg, i) => ({pg, f:'tre', rank:true, i}));
+      html = `<p style="margin:0"><b>Classifica ${calSrc === 'anno' ? 'del ' + calYear : 'globale'}:</b> ${rkTxt}</p>` + table(rows) +
+        `<p class="sub">Opzione 1: 1° + 4° contro 2° + 3° (la più equilibrata, consigliata). Opzione 2: 1° + 3° contro 2° + 4°. Opzione 3: 1° + 2° contro 3° + 4°. Scegli tu sul momento. Il formato proposto è sempre prima il meglio dei 3; sotto ogni coppia vedi quante volte ha già giocato insieme in quel formato (${calYear}).</p>`;
+    } else {
+      // entrambe: somma della posizione per partite e della posizione per classifica; a parità vince l'ordine per partite
+      const order = [];
+      gameRows.forEach(r => { if(!order.includes(r.i)) order.push(r.i); });
+      const sc = order.map((i, gpos) => {
+        const o = optOf(pairings[i]);
+        return {i, gpos, o, score:gpos + o};
+      }).sort((p, q) => p.score - q.score || p.gpos - q.gpos);
+      const rows = [];
+      sc.forEach(x => gameRows.filter(r => r.i === x.i).forEach(r => rows.push({pg:r.pg, f:r.f, rank:true})));
+      html = `<p style="margin:0"><b>${part(P3, 'Al meglio dei 3')}</b><br><b>${part(PS, 'Set singolo')}</b></p>` +
+        `<p style="margin:6px 0 0"><b>Classifica ${calSrc === 'anno' ? 'del ' + calYear : 'globale'}:</b> ${rkTxt}</p>` + table(rows) +
+        `<p class="sub">Le sfide sono ordinate unendo i due criteri: quanto serve recuperare nelle partite giocate e quanto l'accoppiamento è equilibrato in classifica (1° + 4° contro 2° + 3° è il migliore). A parità vale l'ordine per partite giocate. Conta le partite del ${calYear}, senza filtri.</p>`;
+    }
+    out.innerHTML = html;
   }
+  document.addEventListener('click', e => {
+    const t = e.target.closest && e.target.closest('#calMode button');
+    if(!t) return;
+    if(t.dataset.calmode) calMode = t.dataset.calmode;
+    if(t.dataset.calsrc) calSrc = t.dataset.calsrc;
+    saveCal(); if(AALL) renderCalOut();
+  });
   document.addEventListener('change', e => {
     const t = e.target;
     if(!t.closest || !t.closest('#calPresent')) return;
@@ -876,6 +927,46 @@ table.cal tr.best td{background:var(--surface)}
     try { localStorage.setItem(PRES_KEY, JSON.stringify(present)); } catch(_){}
     renderCalOut();
   });
+
+  // ===== Novità dall'ultima volta (banner nell'app, senza permessi) =====
+  const SEEN_KEY = 'padel-visto';
+  const sigOf = m => { const t = [m.data, (m.a || []).join(','), (m.b || []).join(','), JSON.stringify(m.set), m.formato || ''].join('|'); let h = 5381; for(let i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
+  let newOnes = [];
+  const seenRead = () => { try { const v = JSON.parse(localStorage.getItem(SEEN_KEY)); return Array.isArray(v) ? v : null; } catch(_){ return null; } };
+  const markSeen = () => {
+    try { localStorage.setItem(SEEN_KEY, JSON.stringify(matches.filter(valid).map(sigOf))); } catch(_){}
+    newOnes = []; renderNews();
+  };
+  function renderNews(){
+    const box = $('#news'), tab = document.querySelector('#tabs a[data-go="risultati"]');
+    const n = newOnes.length;
+    const old = tab.querySelector('.dot'); if(old) old.remove();
+    if(n){ const d = document.createElement('i'); d.className = 'dot'; d.setAttribute('aria-label', n + ' nuove'); tab.appendChild(d); }
+    try { if(navigator.setAppBadge){ n ? navigator.setAppBadge(n) : navigator.clearAppBadge(); } } catch(_){}
+    if(!n){ box.hidden = true; box.innerHTML = ''; return; }
+    const nameOf = x => { const k = String(x).trim().toLowerCase(), p = AALL && AALL.players.find(q => q.key === k); return p ? p.name : x; };
+    const line = m => {
+      const aw = m.set.filter(x => x[0] > x[1]).length > m.set.filter(x => x[1] > x[0]).length;
+      const W = aw ? m.a : m.b, L = aw ? m.b : m.a;
+      const sc = m.set.map(x => aw ? x[0] + '-' + x[1] : x[1] + '-' + x[0]).join(' ');
+      return `<li>${esc(W.map(nameOf).join(' e '))} battono ${esc(L.map(nameOf).join(' e '))} ${esc(sc)}</li>`;
+    };
+    const top = newOnes.slice().sort((x, y) => String(y.data).localeCompare(String(x.data))).slice(0, 3);
+    box.innerHTML = `<b>Novità dall'ultima volta</b> <button type="button" class="newsx" data-news="close" aria-label="Chiudi">×</button><ul>${top.map(line).join('')}</ul>` +
+      `${n > 3 ? `<p class="sub" style="margin:4px 0 0">+ ${n - 3} ${n - 3 === 1 ? 'altra' : 'altre'}</p>` : ''}<a href="#risultati" data-news="see">Vedi i risultati</a>`;
+    box.hidden = false;
+  }
+  function checkNews(){
+    const sigs = matches.filter(valid).map(sigOf), seen = seenRead();
+    if(seen === null || editOn || current === 'risultati'){ markSeen(); return; }   // prima visita, titolare o già sui risultati: nessun avviso
+    newOnes = matches.filter(valid).filter(m => !seen.includes(sigOf(m)));
+    renderNews();
+  }
+  document.addEventListener('click', e => {
+    const t = e.target.closest && e.target.closest('[data-news]');
+    if(t) markSeen();
+  });
+  window.addEventListener('hashchange', () => { if(parseHash().name === 'risultati' && newOnes.length) markSeen(); });
 
   // ===== Vista normale / compatta =====
   const VIEW_KEY = 'padel-vista';
@@ -931,6 +1022,7 @@ table.cal tr.best td{background:var(--surface)}
       renderBoardControls(B);
     }
     else if(t.dataset.act === 'reset-flt'){ const B = boardOf(t); B.flt = {}; renderBoardControls(B); renderBoardTable(B); }
+    else if(t.dataset.season !== undefined){ season = t.dataset.season === 'all' ? '' : t.dataset.season; showAll = false; reanalyze(); }
     else if(t.dataset.fmt !== undefined){ fmtFilter = t.dataset.fmt; showAll = false; reanalyze(); }
     else if(t.dataset.act === 'install'){
       if(deferredInstall){ deferredInstall.prompt(); deferredInstall.userChoice.then(() => { deferredInstall = null; $('#install').hidden = true; }, () => {}); }
@@ -985,7 +1077,7 @@ table.cal tr.best td{background:var(--surface)}
     return {win:mine.win, partner:{key:mine.keys[1 - i], name:mine.names[1 - i]},
       opp:other.keys.map((k, j) => ({key:k, name:other.names[j]})),
       set:e.set.map(x => flip ? [x[1], x[0]] : [x[0], x[1]]), sw:mine.sw, sl:mine.sl, gw:mine.gw, gl:mine.gl,
-      pts:mine.pts, d:e.delta[key], after:e.after[key], data:e.data, fmt:e.fmt};
+      pts:mine.pts, data:e.data, fmt:e.fmt};
   }
   const playerLog = key => A.log.filter(e => e.a.keys.includes(key) || e.b.keys.includes(key)).map(e => persp(e, key));
   const rec = list => ({pg:list.length, v:list.filter(g => g.win).length, s:list.filter(g => !g.win).length});
@@ -1021,7 +1113,7 @@ table.cal tr.best td{background:var(--surface)}
     }).join('');
     const gp = '<th class="sep">G</th><th>V</th><th>P</th>';
     return `<div class="tw"><table class="pf"><thead><tr><th class="pl" rowspan="2" style="vertical-align:bottom">${kind === 'players' ? 'Giocatore' : 'Coppia'}</th><th class="grp sep" colspan="3">Totale</th><th class="grp sep" colspan="3">3 set</th><th class="grp sep" colspan="3">Singolo</th></tr><tr>${gp}${gp}${gp}</tr></thead><tbody>${rows}</tbody></table></div>` +
-      `<p class="note"><b>G</b> giocate · <b>V</b> vinte · <b>P</b> perse. La riga evidenziata è quella aperta. Contano sempre tutte le partite, anche con il filtro formato attivo.</p>`;
+      `<p class="note"><b>G</b> giocate · <b>V</b> vinte · <b>P</b> perse. La riga evidenziata è quella aperta. Contano sempre tutte le partite della stagione scelta, anche con il filtro formato attivo.</p>`;
   }
   const vpCell = x => x[0] ? `<b>${x[1]}</b>–${x[2]}` : '<span class="z">–</span>';
   function vpTable(label, entries){
@@ -1031,7 +1123,7 @@ table.cal tr.best td{background:var(--surface)}
       return `<tr><td class="name l">${o.html}</td><td>${G ? G : '<span class="z">0</span>'}</td><td class="sep">${vpCell(o.tre)}</td><td class="sep">${vpCell(o.singolo)}</td><td class="sep">${G ? Math.round(V / G * 100) + '%' : '<span class="z">–</span>'}</td></tr>`;
     }).join('');
     return `<div class="tw"><table class="mini vp"><thead><tr><th class="l">${label}</th><th>G</th><th class="sep">3 set V–P</th><th class="sep">Singolo V–P</th><th class="sep">%</th></tr></thead><tbody>${rows}</tbody></table></div>` +
-      `<p class="note"><b>G</b> giocate · <b>3 set V–P</b> vinte–perse al meglio dei 3 · <b>Singolo V–P</b> vinte–perse a set singolo · <b>%</b> vittorie totali. Il trattino indica nessuna partita in quel formato. Contano sempre tutte le partite, anche con il filtro formato attivo.</p>`;
+      `<p class="note"><b>G</b> giocate · <b>3 set V–P</b> vinte–perse al meglio dei 3 · <b>Singolo V–P</b> vinte–perse a set singolo · <b>%</b> vittorie totali. Il trattino indica nessuna partita in quel formato. Contano sempre tutte le partite della stagione scelta, anche con il filtro formato attivo.</p>`;
   }
   const cell3 = (m, k, name, html) => m.get(k) || (m.set(k, {name, html, ...zero()}), m.get(k));
   function renderCoppia(){
@@ -1045,7 +1137,7 @@ table.cal tr.best td{background:var(--surface)}
     }
     ranked(boards.pairs);
     $('#cName').textContent = c.name;
-    $('#cSub').textContent = 'Statistiche calcolate su: ' + (fmtFilter ? FMT_LABEL[fmtFilter] : 'tutte le partite') + '.';
+    $('#cSub').textContent = 'Statistiche calcolate su: ' + (season ? 'stagione ' + season : 'tutte le stagioni') + ', ' + (fmtFilter ? FMT_LABEL[fmtFilter].toLowerCase() : 'tutte le partite') + '.';
     const tile = (lab, val) => `<div class="tile"><span>${lab}</span><b>${val}</b></div>`;
     const formHtml = `<span class="form5" aria-label="Ultime partite">${c.form.slice(-5).map(w => w ? '<span class="w" title="Vinta">V</span>' : '<span class="s" title="Persa">S</span>').join('')}</span>`;
     const opp = new Map();
@@ -1056,7 +1148,7 @@ table.cal tr.best td{background:var(--surface)}
     });
     body.innerHTML =
       `<div class="tiles">` +
-        tile('Posizione', '#' + c.rank) + tile('Punti', c.pt) + tile('ELO', Math.round(c.elo)) +
+        tile('Posizione', '#' + c.rank) + tile('Punti', c.pt) +
         tile('Giocate', c.pg) + tile('Vinte', c.v) + tile('Perse', c.s) + tile('% vittorie', pctTxt(c)) +
         tile('Punti a partita', num1(c.pg ? c.pt / c.pg : 0)) +
         tile('Set vinti - persi', c.sw + ' - ' + c.sl) + tile('Giochi vinti - persi', c.gw + ' - ' + c.gl) +
@@ -1076,16 +1168,12 @@ table.cal tr.best td{background:var(--surface)}
     }
     ranked(boards.players);
     $('#pName').textContent = p.name;
-    $('#pSub').textContent = 'Statistiche calcolate su: ' + (fmtFilter ? FMT_LABEL[fmtFilter] : 'tutte le partite') + '.';
+    $('#pSub').textContent = 'Statistiche calcolate su: ' + (season ? 'stagione ' + season : 'tutte le stagioni') + ', ' + (fmtFilter ? FMT_LABEL[fmtFilter].toLowerCase() : 'tutte le partite') + '.';
     const L = playerLog(p.key);
     // serie
     let run = 0, runType = null, bestW = 0, worstL = 0;
     L.forEach(g => { if(runType === g.win) run++; else { runType = g.win; run = 1; } if(g.win) bestW = Math.max(bestW, run); else worstL = Math.max(worstL, run); });
     const cur = L.length ? (runType ? plural(run, 'vittoria', 'vittorie') : plural(run, 'sconfitta', 'sconfitte')) + ' di fila' : '—';
-    // ELO massimo e minimo
-    let hi = {v:ELO_START, d:null}, lo = {v:ELO_START, d:null};
-    L.forEach(g => { if(g.after > hi.v) hi = {v:g.after, d:g.data}; if(g.after < lo.v) lo = {v:g.after, d:g.data}; });
-    const eloTxt = x => Math.round(x.v) + (x.d ? ' (' + fmtDate(x.d) + ')' : ' (all\'inizio)');
     // formati e set
     const tre = L.filter(g => g.fmt === 'tre'), sing = L.filter(g => g.fmt === 'singolo');
     const terzo = tre.filter(g => g.set.length === 3);
@@ -1103,10 +1191,10 @@ table.cal tr.best td{background:var(--surface)}
     const last = L.slice(-6).reverse().map(g =>
       `<li><div class="mh"><span>${esc(fmtDate(g.data))}</span><span class="fm">${FMT_LABEL[g.fmt]}</span><span class="chip ${g.win ? 'w' : 's'}" title="${g.win ? 'Vinta' : 'Persa'}">${g.win ? 'V' : 'S'}</span></div>` +
       `<div class="mb">con <b>${plink(g.partner.name)}</b> contro ${g.opp.map(o => plink(o.name)).join(' e ')} <span class="sc">${setStr(g.set)}</span></div>` +
-      `<div class="mf">${g.pts} ${g.pts === 1 ? 'punto' : 'punti'} · ELO ${signed(g.d)}</div></li>`).join('');
+      `<div class="mf">${g.pts} ${g.pts === 1 ? 'punto' : 'punti'}</div></li>`).join('');
     body.innerHTML =
       `<div class="tiles">` +
-        tile('Posizione', '#' + p.rank) + tile('Punti', p.pt) + tile('ELO', Math.round(p.elo)) +
+        tile('Posizione', '#' + p.rank) + tile('Punti', p.pt) +
         tile('Giocate', p.pg) + tile('Vinte', p.v) + tile('Perse', p.s) + tile('% vittorie', pctTxt(p)) +
         tile('Punti a partita', num1(p.pg ? p.pt / p.pg : 0)) +
         tile('Set vinti - persi', p.sw + ' - ' + p.sl) + tile('Giochi vinti - persi', p.gw + ' - ' + p.gl) +
@@ -1115,7 +1203,6 @@ table.cal tr.best td{background:var(--surface)}
       `<div class="pblock"><h3 class="h3">Serie e record</h3><dl class="facts">` +
         fact('Serie attuale', cur) + fact('Miglior serie di vittorie', bestW ? plural(bestW, 'vittoria', 'vittorie') : '—') +
         fact('Peggior serie di sconfitte', worstL ? plural(worstL, 'sconfitta', 'sconfitte') : '—') +
-        fact('ELO massimo', eloTxt(hi)) + fact('ELO minimo', eloTxt(lo)) +
         fact('Al meglio dei 3', recTxt(rec(tre))) + fact('Set singolo', recTxt(rec(sing))) +
         fact('Vittorie 2-0', w20) + fact('Sconfitte 0-2', l02) +
         fact('Partite al terzo set', terzo.length ? `${terzo.filter(g => g.win).length} vinte, ${terzo.filter(g => !g.win).length} perse` : 'nessuna') +
@@ -1146,7 +1233,7 @@ table.cal tr.best td{background:var(--surface)}
     if(cmpA === cmpB){ out.innerHTML = `<p class="empty">Scegli ${pl ? 'due giocatori diversi' : 'due coppie diverse'}.</p>`; return; }
     const x = items.find(i => i.key === cmpA), y = items.find(i => i.key === cmpB);
     const STAT = [
-      ['Punti', o => o.pt, true], ['ELO', o => Math.round(o.elo), true], ['Giocate', o => o.pg], ['Vinte', o => o.v, true], ['Perse', o => o.s],
+      ['Punti', o => o.pt, true], ['Giocate', o => o.pg], ['Vinte', o => o.v, true], ['Perse', o => o.s],
       ['% vittorie', o => Math.round(pct(o) * 100), true, v => v + '%'], ['Punti a partita', o => o.pg ? o.pt / o.pg : 0, true, num1],
       ['Set vinti', o => o.sw, true], ['Set persi', o => o.sl], ['Diff. giochi', o => diff(o), true, fmtDiff]
     ];
@@ -1208,10 +1295,10 @@ table.cal tr.best td{background:var(--surface)}
     c.fillText('Padel Stats & Rankings', PAD, 100);
     const d = new Date(), when = new Intl.DateTimeFormat('it-IT', {day:'numeric', month:'long', year:'numeric'}).format(d);
     c.fillStyle = '#4a5565'; c.font = `500 30px ${FONT}`;
-    c.fillText((kind === 'players' ? 'Classifica giocatori' : 'Classifica coppie') + ' · ' + when + (fmtFilter ? ' · ' + FMT_LABEL[fmtFilter] : ''), PAD, 150);
-    const X = {pt:600, elo:705, pg:775, v:840, s:905, pct:1032};
+    c.fillText((kind === 'players' ? 'Classifica giocatori' : 'Classifica coppie') + ' · ' + when + (season ? ' · ' + season : '') + (fmtFilter ? ' · ' + FMT_LABEL[fmtFilter] : ''), PAD, 150);
+    const X = {pt:690, pg:790, v:870, s:950, pct:1040};
     c.font = `600 24px ${FONT}`; c.textAlign = 'right'; c.fillStyle = '#4a5565';
-    [['pt', 'PUNTI'], ['elo', 'ELO'], ['pg', 'G'], ['v', 'V'], ['s', 'P'], ['pct', '%']].forEach(([k, l]) => c.fillText(l, X[k], 224));
+    [['pt', 'PUNTI'], ['pg', 'G'], ['v', 'V'], ['s', 'P'], ['pct', '%']].forEach(([k, l]) => c.fillText(l, X[k], 224));
     c.textAlign = 'left'; c.fillText(kind === 'players' ? 'GIOCATORE' : 'COPPIA', PAD + 84, 224);
     c.fillStyle = '#dfe4ec'; c.fillRect(PAD, 238, W - PAD * 2, 2);
     const MEDAL = ['#e8b923', '#c5cbd4', '#d08b4e'];
@@ -1225,7 +1312,7 @@ table.cal tr.best td{background:var(--surface)}
       c.textAlign = 'right';
       c.font = `700 36px ${FONT}`; c.fillText(String(p.pt), X.pt, mid + 12);
       c.font = `500 32px ${FONT}`; c.fillStyle = '#0f1722';
-      c.fillText(String(Math.round(p.elo)), X.elo, mid + 11); c.fillText(String(p.pg), X.pg, mid + 11);
+      c.fillText(String(p.pg), X.pg, mid + 11);
       c.fillText(String(p.v), X.v, mid + 11); c.fillText(String(p.s), X.s, mid + 11);
       c.font = `600 32px ${FONT}`; c.fillText(Math.round(pct(p) * 100) + '%', X.pct, mid + 11);
     });
@@ -1588,7 +1675,7 @@ table.cal tr.best td{background:var(--surface)}
   function go(name, key){
     if(!visibleScreens().includes(name) || ((name === 'giocatore' || name === 'confronto' || name === 'coppia') && !unlocked)) name = 'classifica';
     current = name; currentKey = (name === 'giocatore' || name === 'coppia') ? (key || '') : '';
-    $('#fmtbar').hidden = name === 'aggiungi' || name === 'calendario';
+    $('#fmtbar').hidden = $('#yearbar').hidden = name === 'aggiungi' || name === 'calendario';
     document.querySelectorAll('.blk[data-screen]').forEach(s => s.classList.toggle('on', s.dataset.screen === name));
     document.querySelectorAll('#tabs a').forEach(a => {
       if(a.dataset.go === (name === 'giocatore' || name === 'confronto' ? 'classifica' : name === 'coppia' ? 'coppie' : name)) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
@@ -1625,10 +1712,11 @@ table.cal tr.best td{background:var(--surface)}
     .then(j => {
       matches = Array.isArray(j.partite) ? j.partite : [];
       reanalyze();
+      checkNews();
       const n = $('#notice');
       if(j.esempio === true){ n.innerHTML = '<b>Dati di esempio.</b> Per usare le vostre partite sostituisci il contenuto di <code>partite.json</code> e togli la riga <code>"esempio": true</code>.'; n.hidden = false; }
-      else if(!A.count){ n.textContent = 'Nessuna partita valida in partite.json. Aggiungi le partite modificando il file su GitHub.'; n.hidden = false; }
-      else if(matches.length > A.count){ n.textContent = (matches.length - A.count) + ' partite di partite.json non sono valide e vengono ignorate. Controlla punteggi e formato.'; n.hidden = false; }
+      else if(!matches.filter(valid).length){ n.textContent = 'Nessuna partita valida in partite.json. Aggiungi le partite modificando il file su GitHub.'; n.hidden = false; }
+      else if(matches.length > matches.filter(valid).length){ n.textContent = (matches.length - matches.filter(valid).length) + ' partite di partite.json non sono valide e vengono ignorate. Controlla punteggi e formato.'; n.hidden = false; }
     })
     .catch(() => {
       const n = $('#notice');
